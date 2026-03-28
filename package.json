@@ -11,13 +11,15 @@
     "build": "tsc",
     "start": "node dist/cli.js"
   },
-  "keywords": ["prompt-injection", "security", "llm", "claude"],
+  "keywords": [
+    "prompt-injection",
+    "security",
+    "llm",
+    "claude"
+  ],
   "license": "MIT",
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0"
-  },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
   }
 }

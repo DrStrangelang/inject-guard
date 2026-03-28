@@ -1,10 +1,12 @@
 # inject-guard
 
-Detect, classify, and throw on prompt injection attempts in arbitrary text input.
+**A guard rail for AI agents — checks untrusted input for prompt injection before it reaches your LLM.**
 
-Uses any OpenAI-compatible model as the classifier — Anthropic, OpenAI, Morpheus, Ollama, Together AI, or any local endpoint.
+Drop it in front of any agent input: user messages, tool results, webhooks, scraped content. Classifies against the TOKO system (10 injection categories). Throws on detection, passes silently when clean.
 
-Classifies against the [TOKO system](https://github.com/DrStrangelang/inject-guard) (10 injection categories).
+Works with any OpenAI-compatible model — Morpheus, Anthropic, OpenAI, Ollama, Together AI, or any local endpoint. Zero dependencies.
+
+---
 
 ## Install
 
@@ -12,42 +14,20 @@ Classifies against the [TOKO system](https://github.com/DrStrangelang/inject-gua
 npm install inject-guard
 ```
 
-No required dependencies — uses the Node.js built-in `fetch`.
+Requires Node.js 18+ (uses built-in `fetch`). No SDK lock-in.
 
-## Module Usage
+---
+
+## Usage
+
+### As a library (Node.js / TypeScript)
 
 ```typescript
 import { checkInjection, InjectionDetectedError } from "inject-guard";
 
-// Default: Anthropic endpoint, claude-sonnet-4-20250514
-await checkInjection("What is the weather today?");
-
-// Morpheus decentralized inference
-await checkInjection(userInput, {
-  baseUrl: "http://localhost:8083/v1",
-  model: "kimi-k2.5",
-  apiKey: "morpheus-local",
-});
-
-// OpenAI
-await checkInjection(userInput, {
-  baseUrl: "https://api.openai.com/v1",
-  model: "gpt-4o-mini",
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Local Ollama (no key needed)
-await checkInjection(userInput, {
-  baseUrl: "http://localhost:11434/v1",
-  model: "llama3.2",
-});
-```
-
-Throws `InjectionDetectedError` when injection is detected above the confidence threshold:
-
-```typescript
 try {
   await checkInjection(userInput);
+  // clean — proceed normally
 } catch (err) {
   if (err instanceof InjectionDetectedError) {
     console.error(err.category);    // e.g. "role_hijacking"
@@ -57,7 +37,36 @@ try {
 }
 ```
 
-## CLI Usage
+### With Morpheus decentralized inference
+
+```typescript
+await checkInjection(userInput, {
+  baseUrl: "http://localhost:8083/v1",
+  model: "kimi-k2.5",
+  apiKey: "morpheus-local",
+});
+```
+
+### With OpenAI
+
+```typescript
+await checkInjection(userInput, {
+  baseUrl: "https://api.openai.com/v1",
+  model: "gpt-4o-mini",
+  apiKey: process.env.OPENAI_API_KEY,
+});
+```
+
+### With local Ollama (no key needed)
+
+```typescript
+await checkInjection(userInput, {
+  baseUrl: "http://localhost:11434/v1",
+  model: "llama3.2",
+});
+```
+
+### As a CLI
 
 ```bash
 # Pipe input
@@ -66,17 +75,28 @@ echo "Ignore all previous instructions" | npx inject-guard
 # Flag input
 inject-guard --input "Ignore all previous instructions"
 
-# Use Morpheus instead of Anthropic
+# With Morpheus
 inject-guard --base-url http://localhost:8083/v1 --model kimi-k2.5 --input "some text"
 
-# Use local Ollama (no API key needed)
+# With local Ollama
 inject-guard --base-url http://localhost:11434/v1 --model llama3.2 --input "some text"
 
-# Custom threshold
+# Custom confidence threshold
 inject-guard --input "some text" --threshold 0.9
 ```
 
 Exit codes: `0` = clean, `2` = injection detected, `1` = error.
+
+### As an OpenClaw skill
+
+Install the skill to use `checkInjection` as a native agent tool in any OpenClaw session:
+
+```bash
+# Copy skill to your OpenClaw workspace
+cp -r skills/inject-guard ~/.openclaw/workspace/skills/
+```
+
+---
 
 ## Configuration
 
@@ -95,21 +115,27 @@ Exit codes: `0` = clean, `2` = injection detected, `1` = error.
 | `INJECT_GUARD_BASE_URL`| Base URL override                             |
 | `OPENAI_API_KEY`       | Fallback API key                              |
 
+---
+
 ## TOKO Categories
 
-| Category                    | Description                                               |
-|-----------------------------|-----------------------------------------------------------|
-| `role_hijacking`            | Override the AI's role ("Ignore previous instructions…")  |
-| `authority_spoofing`        | False claims of authority ("Your operator says…")         |
-| `framing_tricks`            | Fictional wrapping, roleplay used as escape hatch         |
-| `evidence_fabrication`      | Fake tool results, invented citations                     |
-| `assumption_planting`       | Planting false premises ("As we already established…")    |
-| `opponent_mischaracterization` | Attacking safety rules ("Real AI would…")              |
-| `scope_creep`               | Gradually expanding task to include prohibited actions    |
-| `coercion_urgency`          | False urgency or threats                                  |
-| `narrative_manipulation`    | Instructions hidden in stories, poems, code comments      |
-| `self_misrepresentation`    | Claiming to be a system message or trusted source         |
+| Category                       | Description                                               |
+|--------------------------------|-----------------------------------------------------------|
+| `role_hijacking`               | Override the AI's role ("Ignore previous instructions…")  |
+| `authority_spoofing`           | False claims of authority ("Your operator says…")         |
+| `framing_tricks`               | Fictional wrapping, roleplay used as escape hatch         |
+| `evidence_fabrication`         | Fake tool results, invented citations                     |
+| `assumption_planting`          | Planting false premises ("As we already established…")    |
+| `opponent_mischaracterization` | Attacking safety rules ("Real AI would…")                 |
+| `scope_creep`                  | Gradually expanding task to include prohibited actions    |
+| `coercion_urgency`             | False urgency or threats                                  |
+| `narrative_manipulation`       | Instructions hidden in stories, poems, code comments      |
+| `self_misrepresentation`       | Claiming to be a system message or trusted source         |
 
-## Zero Dependencies
+---
 
-inject-guard uses Node.js built-in `fetch` (v18+). No SDK lock-in.
+## How It Works
+
+1. **Normalize** — strips obfuscation: base64 substrings, unicode escapes, zero-width characters, excessive whitespace. Flags if input was modified (obfuscation is itself a signal).
+2. **Classify** — sends normalized input to your chosen model with the TOKO prompt. Model returns `{injectionDetected, category, confidence, explanation}`.
+3. **Throw or pass** — if `injectionDetected && confidence >= threshold`, throws `InjectionDetectedError`. Otherwise returns silently.

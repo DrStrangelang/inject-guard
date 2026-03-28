@@ -1,0 +1,23 @@
+{
+  "name": "inject-guard",
+  "version": "1.0.0",
+  "description": "Detect, classify, and throw on prompt injection attempts using Claude as classifier",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "inject-guard": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js"
+  },
+  "keywords": ["prompt-injection", "security", "llm", "claude"],
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}
